@@ -47,14 +47,8 @@ To recreate the Blender scene, open Blender's Scripting workspace, load `assets/
 
 ## AI Usage
 
-An AI assistant can be used while completing this assignment to explain code, suggest fixes, or help debug problems. It can assist with these files:
+I used claude ai as a helping assistant for this assignment, because this is the first time i used blender. I followed step-by-step instructions from Claude AI for implementing blender model, OBJ export, src/main.cpp, gl_loader.hpp, shaders/blinn_phong_frag.glsl, shaders/blinn_phong_vert.glsl, build and run part and the configuartions. This reflection part is written by me. 
 
-- `src/main.cpp` — understanding the OBJ loader, camera controls, and render loop.
-- `shaders/blinn_phong_vert.glsl` and `shaders/blinn_phong_frag.glsl` — explaining shader stages and lighting calculations.
-- `assets/build_robot_arm_obj.py` and `assets/create_robot_arm_blend.py` — understanding how the model files and Blender scene are generated.
-- `CMakeLists.txt` — explaining how to configure and build the project.
-
-Review any AI suggestions, make sure you understand changes before using them, and follow your course's rules for AI assistance.
 
 ## Reflection answers
 
