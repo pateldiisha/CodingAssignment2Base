@@ -1,0 +1,132 @@
+#!/usr/bin/env python3
+"""Generate the low-poly robot arm OBJ used by the OpenGL starter project."""
+from math import cos, pi, sin
+from pathlib import Path
+
+OUT = Path(__file__).resolve().parent
+materials = {
+    "steel": (0.22, 0.31, 0.40),
+    "blue": (0.12, 0.42, 0.67),
+    "gold": (0.88, 0.48, 0.15),
+    "dark": (0.08, 0.11, 0.14),
+    "rubber": (0.035, 0.045, 0.055),
+}
+triangles = {name: [] for name in materials}
+
+
+def add_triangle(material, points, normals=None):
+    a, b, c = points
+    cross = ((b[1] - a[1]) * (c[2] - a[2]) - (b[2] - a[2]) * (c[1] - a[1]),
+             (b[2] - a[2]) * (c[0] - a[0]) - (b[0] - a[0]) * (c[2] - a[2]),
+             (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]))
+    length = sum(x * x for x in cross) ** 0.5 or 1.0
+    face_normal = tuple(x / length for x in cross)
+    if normals is None:
+        normals = [face_normal] * 3
+    triangles[material].append((points, normals))
+
+
+def quad(material, points, normal):
+    add_triangle(material, (points[0], points[1], points[2]), [normal] * 3)
+    add_triangle(material, (points[0], points[2], points[3]), [normal] * 3)
+
+
+def box(material, center, length, width, depth, direction=(1.0, 0.0, 0.0)):
+    # Long axis follows direction in the XY plane; width is perpendicular in XY.
+    dx, dy = direction
+    size = (dx * dx + dy * dy) ** 0.5
+    u = (dx / size, dy / size, 0.0)
+    v = (-u[1], u[0], 0.0)
+    w = (0.0, 0.0, 1.0)
+    axes = (u, v, w)
+    halves = (length / 2, width / 2, depth / 2)
+
+    def corner(su, sv, sw):
+        signs = (su, sv, sw)
+        return tuple(center[k] + sum(axes[j][k] * halves[j] * signs[j] for j in range(3)) for k in range(3))
+
+    faces = [
+        ((1, -1, -1), (1, 1, -1), (1, 1, 1), (1, -1, 1), u),
+        ((-1, 1, -1), (-1, -1, -1), (-1, -1, 1), (-1, 1, 1), tuple(-x for x in u)),
+        ((-1, 1, -1), (1, 1, -1), (1, 1, 1), (-1, 1, 1), v),
+        ((1, -1, -1), (-1, -1, -1), (-1, -1, 1), (1, -1, 1), tuple(-x for x in v)),
+        ((-1, -1, 1), (-1, 1, 1), (1, 1, 1), (1, -1, 1), w),
+        ((-1, 1, -1), (-1, -1, -1), (1, -1, -1), (1, 1, -1), tuple(-x for x in w)),
+    ]
+    for face in faces:
+        quad(material, [corner(*s) for s in face[:4]], face[4])
+
+
+def cylinder(material, center, radius, height, sides=20):
+    cx, cy, cz = center
+    lo, hi = cy - height / 2, cy + height / 2
+    for i in range(sides):
+        a0, a1 = 2 * pi * i / sides, 2 * pi * (i + 1) / sides
+        p0 = (cx + radius * cos(a0), lo, cz + radius * sin(a0))
+        p1 = (cx + radius * cos(a1), lo, cz + radius * sin(a1))
+        p2 = (cx + radius * cos(a1), hi, cz + radius * sin(a1))
+        p3 = (cx + radius * cos(a0), hi, cz + radius * sin(a0))
+        n0, n1 = (cos(a0), 0, sin(a0)), (cos(a1), 0, sin(a1))
+        add_triangle(material, (p0, p1, p2), (n0, n1, n1))
+        add_triangle(material, (p0, p2, p3), (n0, n1, n0))
+        add_triangle(material, ((cx, lo, cz), p1, p0), ((0, -1, 0),) * 3)
+        add_triangle(material, ((cx, hi, cz), p3, p2), ((0, 1, 0),) * 3)
+
+
+def sphere(material, center, radius, rings=10, sides=16):
+    cx, cy, cz = center
+    grid = []
+    for j in range(rings + 1):
+        phi = pi * j / rings
+        row = []
+        for i in range(sides + 1):
+            theta = 2 * pi * i / sides
+            n = (sin(phi) * cos(theta), cos(phi), sin(phi) * sin(theta))
+            row.append(((cx + radius * n[0], cy + radius * n[1], cz + radius * n[2]), n))
+        grid.append(row)
+    for j in range(rings):
+        for i in range(sides):
+            p00, p01 = grid[j][i], grid[j][i + 1]
+            p10, p11 = grid[j + 1][i], grid[j + 1][i + 1]
+            add_triangle(material, (p00[0], p10[0], p11[0]), (p00[1], p10[1], p11[1]))
+            add_triangle(material, (p00[0], p11[0], p01[0]), (p00[1], p11[1], p01[1]))
+
+
+# Rotating pedestal, shoulder, two links, wrist, and a two-finger gripper.
+cylinder("dark", (0, 0.15, 0), 0.58, 0.30)
+cylinder("steel", (0, 0.34, 0), 0.40, 0.14)
+cylinder("gold", (0, 0.45, 0), 0.31, 0.10)
+sphere("steel", (0, 0.67, 0), 0.31)
+box("blue", (0.08, 1.13, 0), 1.02, 0.31, 0.30, (0.20, 0.98))
+sphere("dark", (0.18, 1.63, 0), 0.22)
+cylinder("gold", (0.18, 1.63, 0), 0.24, 0.38)
+box("gold", (-0.08, 2.02, 0), 0.92, 0.25, 0.24, (-0.56, 0.83))
+sphere("steel", (-0.34, 2.40, 0), 0.18)
+box("steel", (-0.34, 2.58, 0), 0.35, 0.20, 0.20, (0, 1))
+box("dark", (-0.34, 2.78, 0), 0.12, 0.45, 0.16, (1, 0))
+box("rubber", (-0.34, 2.98, -0.18), 0.34, 0.075, 0.075, (0, 1))
+box("rubber", (-0.34, 2.98, 0.18), 0.34, 0.075, 0.075, (0, 1))
+
+with (OUT / "robot_arm.mtl").open("w", encoding="utf-8") as mtl:
+    mtl.write("# Diffuse materials for the robot arm model\n")
+    for name, color in materials.items():
+        mtl.write(f"newmtl {name}\nKd {color[0]:.4f} {color[1]:.4f} {color[2]:.4f}\nKa 0.15 0.15 0.15\nKs 0.35 0.35 0.35\nNs 48\n\n")
+
+with (OUT / "robot_arm.obj").open("w", encoding="utf-8") as obj:
+    obj.write("# Low-poly articulated robot arm, generated by build_robot_arm_obj.py\nmtllib robot_arm.mtl\n")
+    vertex = normal = 1
+    for material, entries in triangles.items():
+        if not entries:
+            continue
+        obj.write(f"\no {material}_parts\nusemtl {material}\n")
+        for points, ns in entries:
+            refs = []
+            for p, n in zip(points, ns):
+                obj.write(f"v {p[0]:.6f} {p[1]:.6f} {p[2]:.6f}\n")
+                refs.append((vertex, normal))
+                vertex += 1
+                obj.write(f"vn {n[0]:.6f} {n[1]:.6f} {n[2]:.6f}\n")
+                normal += 1
+            obj.write("f " + " ".join(f"{v}//{n}" for v, n in refs) + "\n")
+
+print(f"Wrote {OUT / 'robot_arm.obj'} and robot_arm.mtl")
